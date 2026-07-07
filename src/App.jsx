@@ -4,43 +4,26 @@ import FileDropZone from './components/FileDropZone';
 import './App.css';
 
 // ─── Movie Configuration ──────────────────────────────────────────────────────
-const MOVIE_ORIGINAL = '/95-satluj.mkv';
-const MOVIE_AAC      = '/95-satluj-aac.mkv';
-const MOVIE_TITLE    = '95-Satluj';
-
-async function checkAacReady() {
-  try {
-    const res = await fetch(MOVIE_AAC, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
+// Helper to generate a direct streamable link from any Google Drive share link.
+function getGoogleDriveStreamUrl(shareUrlOrId) {
+  if (!shareUrlOrId) return '';
+  // Extract ID from full sharing URL
+  const match = shareUrlOrId.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const fileId = match ? match[1] : shareUrlOrId;
+  
+  // Direct download/stream URL for Google Drive
+  return `https://docs.google.com/uc?export=download&id=${fileId}`;
 }
 
+// Default stream URL using the user's Google Drive movie ID
+const GOOGLE_DRIVE_ID = '1aoSQBElI2sBCB0X1K5sBw0wWdAUtrmVX';
+const MOVIE_SRC = getGoogleDriveStreamUrl(GOOGLE_DRIVE_ID);
+const MOVIE_TITLE = '95-Satluj (Stream)';
+
 function App() {
-  const [movieSrc, setMovieSrc] = useState(MOVIE_ORIGINAL);
+  const [movieSrc, setMovieSrc] = useState(MOVIE_SRC);
   const [selectedLocalFile, setSelectedLocalFile] = useState(null);
   const [mode, setMode] = useState('server'); // 'server' | 'local'
-  const [aacReady, setAacReady] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  // Poll for server-side AAC file
-  useEffect(() => {
-    let timer;
-    const poll = async () => {
-      const ready = await checkAacReady();
-      if (ready) {
-        setAacReady(true);
-        setMovieSrc(MOVIE_AAC);
-        setChecking(false);
-      } else {
-        setChecking(false);
-        timer = setTimeout(poll, 15000);
-      }
-    };
-    poll();
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleLocalFileSelect = (file) => {
     setSelectedLocalFile(file);
@@ -53,11 +36,8 @@ function App() {
   };
 
   const handleVideoError = () => {
-    // If server mode fails (e.g. 404 on Render), automatically switch to local file picker
-    if (mode === 'server' && !aacReady) {
-      console.warn('[CinePlay] Server movie file not found on hosting. Switching to local file picker mode.');
-      setMode('local');
-    }
+    // If the Google Drive link fails or hits a quota limit, warn the user
+    console.warn('[CinePlay] Video source failed to load. If using Google Drive, the download quota may be exceeded.');
   };
 
   return (
@@ -77,7 +57,7 @@ function App() {
             className={`mode-toggle-btn ${mode === 'server' ? 'mode-toggle-btn--active' : ''}`}
             onClick={switchToServerMode}
           >
-            Server Mode
+            Google Drive Stream
           </button>
           <button 
             className={`mode-toggle-btn ${mode === 'local' ? 'mode-toggle-btn--active' : ''}`}
@@ -86,34 +66,18 @@ function App() {
             Local File Mode
           </button>
           <div className="app-header__badge">
-            {mode === 'local' ? 'Local Play' : aacReady ? '🔊 AAC Audio' : 'MKV Ready'}
+            {mode === 'local' ? 'Local Play' : 'Cloud Stream'}
           </div>
         </div>
       </header>
 
-      {/* Conversion status banners for Server mode */}
-      {mode === 'server' && !aacReady && (
-        <div className={`conversion-banner ${checking ? 'conversion-banner--checking' : 'conversion-banner--converting'}`} id="conversion-banner">
-          <div className="cb-icon">{checking ? '🔍' : '⚙️'}</div>
+      {/* Cloud Stream Notice */}
+      {mode === 'server' && (
+        <div className="conversion-banner conversion-banner--converting" id="stream-banner">
+          <div className="cb-icon">☁️</div>
           <div className="cb-text">
-            {checking
-              ? 'Checking for AAC audio file…'
-              : <>
-                  <strong>Server Mode</strong>
-                  <span> — Looking for <code>{MOVIE_ORIGINAL}</code> on the server. If deploying to Render, please use **Local File Mode** below as 3GB files are not uploaded to Git.</span>
-                </>
-            }
-          </div>
-          <div className="cb-spinner" />
-        </div>
-      )}
-
-      {mode === 'server' && aacReady && (
-        <div className="conversion-banner conversion-banner--done" id="aac-ready-banner">
-          <div className="cb-icon">✅</div>
-          <div className="cb-text">
-            <strong>Audio Fixed!</strong>
-            <span> Playing AAC version from server — full 5.1 surround sound works.</span>
+            <strong>Streaming from Google Drive</strong>
+            <span> — Make sure to upload the converted <code>95-satluj-aac.mkv</code> to your Google Drive to get working sound natively.</span>
           </div>
         </div>
       )}
@@ -130,15 +94,14 @@ function App() {
                   Play Local Movie <span className="landing__accent">Instantly</span>
                 </h1>
                 <p className="landing__desc">
-                  Since 3GB movies cannot be uploaded to GitHub/Render, select the file from your local hard drive. 
-                  It plays 100% offline in your browser with zero uploads or buffering.
+                  Select the file from your local hard drive. It plays 100% offline in your browser with zero uploads or buffering.
                 </p>
               </div>
               
               <FileDropZone onFileSelect={handleLocalFileSelect} />
             </div>
           ) : (
-            /* Video Player view (either local selected file or server mode) */
+            /* Video Player view */
             <>
               {/* Keyboard hints */}
               <div className="shortcut-bar">
@@ -165,7 +128,7 @@ function App() {
                   {mode === 'local' ? (
                     <>Playing Local File: <code>{selectedLocalFile.name}</code></>
                   ) : (
-                    <>Playing Server File: <code>{movieSrc}</code></>
+                    <>Playing from Google Drive (ID: <code>{GOOGLE_DRIVE_ID}</code>)</>
                   )}
                 </span>
               </div>
