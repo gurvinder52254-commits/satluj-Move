@@ -4,20 +4,30 @@ import FileDropZone from './components/FileDropZone';
 import './App.css';
 
 // ─── Movie Configuration ──────────────────────────────────────────────────────
-// Helper to generate a direct streamable link from any Google Drive share link.
-function getGoogleDriveStreamUrl(shareUrlOrId) {
-  if (!shareUrlOrId) return '';
-  // Extract ID from full sharing URL
-  const match = shareUrlOrId.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  const fileId = match ? match[1] : shareUrlOrId;
+// Maps various cloud links (Dropbox, Google Drive, direct links) into direct video stream URLs
+function getDirectStreamUrl(urlOrId) {
+  if (!urlOrId) return '';
   
-  // Direct download/stream URL for Google Drive
-  return `https://docs.google.com/uc?export=download&id=${fileId}`;
+  // 1. Dropbox link: convert to raw stream (change dl=0 or dl=1 to raw=1)
+  if (urlOrId.includes('dropbox.com')) {
+    return urlOrId.replace(/[?&]dl=[01]/, '').concat(urlOrId.includes('?') ? '&raw=1' : '?raw=1');
+  }
+
+  // 2. Google Drive sharing URL or ID
+  const driveMatch = urlOrId.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const fileId = driveMatch ? driveMatch[1] : urlOrId;
+  
+  // Direct stream endpoint for Google Drive (Note: Google Drive blocks range requests and large file fetches)
+  if (fileId && fileId.length > 20 && !urlOrId.includes('/') && !urlOrId.includes('.')) {
+    return `https://docs.google.com/uc?export=download&id=${fileId}`;
+  }
+
+  return urlOrId;
 }
 
-// Default stream URL using the user's Google Drive movie ID
-const GOOGLE_DRIVE_ID = '1aoSQBElI2sBCB0X1K5sBw0wWdAUtrmVX';
-const MOVIE_SRC = getGoogleDriveStreamUrl(GOOGLE_DRIVE_ID);
+// Paste your direct link or Dropbox link below
+const MOVIE_LINK = 'https://drive.google.com/file/d/1aoSQBElI2sBCB0X1K5sBw0wWdAUtrmVX/view?usp=drive_link';
+const MOVIE_SRC = getDirectStreamUrl(MOVIE_LINK);
 const MOVIE_TITLE = '95-Satluj (Stream)';
 
 function App() {
@@ -36,8 +46,7 @@ function App() {
   };
 
   const handleVideoError = () => {
-    // If the Google Drive link fails or hits a quota limit, warn the user
-    console.warn('[CinePlay] Video source failed to load. If using Google Drive, the download quota may be exceeded.');
+    console.warn('[CinePlay] Video source failed to load. Large Google Drive files are blocked by Google virus scan screen.');
   };
 
   return (
@@ -57,7 +66,7 @@ function App() {
             className={`mode-toggle-btn ${mode === 'server' ? 'mode-toggle-btn--active' : ''}`}
             onClick={switchToServerMode}
           >
-            Google Drive Stream
+            Cloud Stream Mode
           </button>
           <button 
             className={`mode-toggle-btn ${mode === 'local' ? 'mode-toggle-btn--active' : ''}`}
@@ -76,8 +85,8 @@ function App() {
         <div className="conversion-banner conversion-banner--converting" id="stream-banner">
           <div className="cb-icon">☁️</div>
           <div className="cb-text">
-            <strong>Streaming from Google Drive</strong>
-            <span> — Make sure to upload the converted <code>95-satluj-aac.mkv</code> to your Google Drive to get working sound natively.</span>
+            <strong>Cloud Stream mode active</strong>
+            <span> — If the video shows "Format not supported", it is because Google Drive blocks large file streams (virus warning screen). We recommend using **Dropbox** or **Local File Mode**.</span>
           </div>
         </div>
       )}
@@ -128,7 +137,7 @@ function App() {
                   {mode === 'local' ? (
                     <>Playing Local File: <code>{selectedLocalFile.name}</code></>
                   ) : (
-                    <>Playing from Google Drive (ID: <code>{GOOGLE_DRIVE_ID}</code>)</>
+                    <>Stream source: <code>{MOVIE_LINK.substring(0, 70)}...</code></>
                   )}
                 </span>
               </div>
