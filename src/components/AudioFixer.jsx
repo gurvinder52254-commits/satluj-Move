@@ -94,7 +94,7 @@ export default function AudioFixer({ videoSrc, videoRef, isPlaying, file }) {
   // ─── Helpers ──────────────────────────────────────────────────────────────
   const isUnsupportedCodec = detectedCodec && ['ac3', 'dts', 'eac3', 'dts-hd', 'truehd'].includes(detectedCodec);
   const filename = videoSrc?.split('/').pop() || 'movie.mkv';
-  const ffmpegCmd = `ffmpeg -i "${filename}" -c:v copy -c:a aac -b:a 192k "${filename.replace(/\.mkv$/i, '-aac.mkv')}"`;
+  const ffmpegCmd = `ffmpeg -i "${filename}" -c:v copy -c:a aac -ac 2 -b:a 192k "${filename.replace(/\.mkv$/i, '-aac.mkv')}"`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(ffmpegCmd).then(() => {

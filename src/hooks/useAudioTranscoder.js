@@ -131,6 +131,7 @@ export function useAudioTranscoder() {
       '-i', 'input.mkv',
       '-vn',                // skip video — much faster
       '-c:a', 'aac',
+      '-ac', '2',           // downmix to stereo (prevents voice dropout on normal speakers)
       '-b:a', '192k',
       '-strict', 'experimental',
       '-y',
