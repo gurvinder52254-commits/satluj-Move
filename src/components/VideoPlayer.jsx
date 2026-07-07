@@ -11,7 +11,7 @@ import AudioFixer from './AudioFixer';
  * @param {string} src    - Public URL path to the video, e.g. "/movie.mkv"
  * @param {string} [title] - Display name shown in the controls bar
  */
-export default function VideoPlayer({ src, title }) {
+export default function VideoPlayer({ src, title, onError, file }) {
   const containerRef = useRef(null);
 
   const {
@@ -38,6 +38,13 @@ export default function VideoPlayer({ src, title }) {
     resetControlsTimer,
     setShowControls,
   } = useVideoPlayer();
+
+  // Notify parent on errors (like file not found on server)
+  useEffect(() => {
+    if (error && onError) {
+      onError(error);
+    }
+  }, [error, onError]);
 
   // ── FIX Bug 2: Explicitly initialize audio state before loading ──────────
   // Without this, the browser's autoplay policy can silently set muted=true
@@ -185,6 +192,7 @@ export default function VideoPlayer({ src, title }) {
         videoSrc={src}
         videoRef={videoRef}
         isPlaying={isPlaying}
+        file={file}
       />
     </>
   );

@@ -65,18 +65,25 @@ export function useAudioTranscoder() {
   }, []);
 
   // ─── Probe the codec without full transcoding ─────────────────────────────
-  const probeCodec = useCallback(async (videoSrc) => {
+  const probeCodec = useCallback(async (videoSrc, file) => {
     setStatus('probing');
     setLogs([]);
     addLog('Probing audio codec (reading first 5MB)…');
 
     const ffmpeg = await loadFFmpeg();
 
-    // Fetch only the first 5MB — enough for MKV header and audio codec info
-    const response = await fetch(videoSrc, {
-      headers: { Range: 'bytes=0-5242879' }, // 5MB
-    });
-    const partialData = await response.arrayBuffer();
+    let partialData;
+    if (file) {
+      // Safe, memory-efficient slicing of local File
+      const slice = file.slice(0, 5242880); // 5MB
+      partialData = await slice.arrayBuffer();
+    } else {
+      // Fetch only the first 5MB — enough for MKV header and audio codec info
+      const response = await fetch(videoSrc, {
+        headers: { Range: 'bytes=0-5242879' }, // 5MB
+      });
+      partialData = await response.arrayBuffer();
+    }
     await ffmpeg.writeFile('probe.mkv', new Uint8Array(partialData));
 
     // Run with -t 0 to get codec info without processing any frames
@@ -92,7 +99,7 @@ export function useAudioTranscoder() {
   }, [loadFFmpeg]);
 
   // ─── Full audio transcoding: AC3/DTS → AAC ───────────────────────────────
-  const transcodeAudio = useCallback(async (videoSrc) => {
+  const transcodeAudio = useCallback(async (videoSrc, file) => {
     setStatus('transcoding');
     setProgress(0);
     setAudioSrc(null);
@@ -106,11 +113,14 @@ export function useAudioTranscoder() {
 
     const ffmpeg = await loadFFmpeg();
 
-    // Download the full file — required for audio demuxing across the whole file
-    // For a 2h+ movie, this is necessary to get the complete audio stream
-    addLog('Downloading movie file… (large file, please wait)');
-
-    const fileData = await fetchFile(videoSrc);
+    let fileData;
+    if (file) {
+      addLog('Reading local movie file…');
+      fileData = await fetchFile(file);
+    } else {
+      addLog('Downloading movie file… (large file, please wait)');
+      fileData = await fetchFile(videoSrc);
+    }
     addLog(`File loaded: ${(fileData.byteLength / 1024 / 1024).toFixed(0)} MB`);
 
     await ffmpeg.writeFile('input.mkv', fileData);

@@ -13,7 +13,7 @@ import { useAudioTranscoder } from '../hooks/useAudioTranscoder';
  * @param {object}  videoRef    - React ref pointing to the <video> element
  * @param {boolean} isPlaying   - Whether the video is currently playing
  */
-export default function AudioFixer({ videoSrc, videoRef, isPlaying }) {
+export default function AudioFixer({ videoSrc, videoRef, isPlaying, file }) {
   const { status, progress, detectedCodec, audioSrc, logs, probeCodec, transcodeAudio, reset } =
     useAudioTranscoder();
 
@@ -27,9 +27,9 @@ export default function AudioFixer({ videoSrc, videoRef, isPlaying }) {
   useEffect(() => {
     if (!probed && videoSrc) {
       setProbed(true);
-      probeCodec(videoSrc).catch(() => {});
+      probeCodec(videoSrc, file).catch(() => {});
     }
-  }, [videoSrc, probed, probeCodec]);
+  }, [videoSrc, file, probed, probeCodec]);
 
   // ─── Sync audio element with video ───────────────────────────────────────
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function AudioFixer({ videoSrc, videoRef, isPlaying }) {
 
   const handleTranscode = async () => {
     try {
-      const url = await transcodeAudio(videoSrc);
+      const url = await transcodeAudio(videoSrc, file);
       if (url) setSyncEnabled(true);
     } catch (err) {
       console.error('[AudioFixer] transcode failed:', err);
